@@ -23,10 +23,6 @@ type FunctionWithArbitraryParameters<T extends (this: AnyKey<T>, ...args: any) =
   AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<T>>>>>>> &
   AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<T>>>>>>>>;
 
-
-
-const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
-
 type ExecSyncOpts = {
   failOnError?: boolean,
   memoize?: boolean,
@@ -36,6 +32,27 @@ type ExecResult = {
   status: number | NodeJS.Signals,
   stdout: string,
   stderr: string,
+}
+
+type MaybeArgs = string[] | ExecSyncOpts | undefined;
+
+const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
+const isObject = (maybeObj: unknown) => Object.prototype.toString.call(maybeObj) == "[object Object]";
+
+const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecSyncOpts) => {
+  const defaultArgs = {
+    maxBuffer: 1024 * 1024 * 10,
+    failOnError: true,
+    memoize: false
+  }
+
+  let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecSyncOpts : options || {};
+  finalOpts = { ...defaultArgs, ...finalOpts }
+
+  const rawArgs = Array.isArray(maybeArgs) ? maybeArgs.filter(Boolean) : [];
+  const finalArgs = ([] as string[]).concat(...rawArgs.map(s => s.split(/\s/))).filter(Boolean);
+
+  return [finalArgs, finalOpts] as [string[], ExecSyncOpts];
 }
 
 async function execAsync(
@@ -86,20 +103,16 @@ async function execAsync(
 
 function exec(
   cmd: string,
-  args: string[],
-  opts: ExecSyncOpts = {
-    failOnError: true,
-    memoize: false
-  }
+  maybeArgs: MaybeArgs,
+  opts: ExecSyncOpts
 ): ExecResult {
+  const [ endArgs, execOpts ] = normalizeArgs(maybeArgs, opts);
+
   const spawnFunc = opts.memoize ? memoizeSpawnSync : spawn.sync;
-  const result = spawnFunc(cmd, args.filter(Boolean), {
-    maxBuffer: 1024 * 1024 * 10, // If output exceeds this size, we will recieve a SIGTERM
-    ...opts
-  });
+  const result = spawnFunc(cmd, endArgs, execOpts);
 
   if ((result.status && result.status > 0) || result.signal) {
-    const errorMessage = `${cmd} ${args.join(" ")} failed. Status ${
+    const errorMessage = `${cmd} ${endArgs.join(" ")} failed. Status ${
       result.status
     }, Signal ${result.signal}.\n${result.stderr}`;
     if (opts.failOnError) {
@@ -128,14 +141,14 @@ function exec(
  */
 function wrap(fn: string) {
   let args: string[] | undefined = [];
-  function _fn(endArgs: string[] = [], opts: ExecSyncOpts = {}): ExecResult {
+
+  function _fn(endArgsOrOpts: MaybeArgs = [], opts: ExecSyncOpts = {}): ExecResult {
     if (!args) {
       args = [];
     }
-    const execOpts = {
-      failOnError: false,
-      ...opts
-    };
+
+    const [ endArgs, execOpts ] = normalizeArgs(endArgsOrOpts, opts);
+
     try {
       return exec(fn, args.concat(endArgs), execOpts);
     } finally {
