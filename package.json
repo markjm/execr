@@ -1,8 +1,9 @@
 {
   "name": "@markjm/execr",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Utility to streamline exec calls",
   "main": "execr.js",
+  "types": "execr.d.ts",
   "author": "Mark Molinaro",
   "license": "MIT",
   "scripts": {
