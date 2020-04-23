@@ -105,32 +105,35 @@ function exec(
  * Examples: `git`, `yarn`, `az`.
  */
 function wrap(fn: string) {
+  let args: string[] | undefined = [];
   function _fn(endArgs: string[] = [], opts: ExecSyncOpts = {}): ExecResult {
-    if (!this.args) {
-      this.args = [];
+    if (!args) {
+      args = [];
     }
     const execOpts = {
       failOnError: false,
       ...opts
     };
     try {
-      return exec(fn, this.args.concat(endArgs), execOpts);
+      console.log(args, endArgs)
+      return exec(fn, args.concat(endArgs), execOpts);
     } finally {
-      this.args = null;
+      args = undefined;
     }
   }
 
   const handler: ProxyHandler<(typeof _fn & { args: string[] })> = {
-    get: function(proxiedFn, prop, proxyObject) {
-      if ((proxiedFn as any)[prop] || typeof prop == "symbol") {
-        return (proxiedFn as any)[prop];
+    get: function(proxiedObj, prop, proxy) {
+      if ((proxiedObj as any)[prop] || typeof prop == "symbol") {
+        return (proxiedObj as any)[prop];
       }
-      if (!proxiedFn.args) {
-        proxiedFn.args = [];
+      if (!args) {
+        args = [];
       }
-      const splitArgs = prop.toString().split(/\s/).filter(Boolean)
-      proxiedFn.args.push(...splitArgs);
-      return proxyObject;
+    
+      const splitArgs = prop.toString().split(/\s/).filter(Boolean);
+      args.push(...splitArgs);
+      return proxy;
     }
   };
   const proxy = new Proxy(_fn, handler);
