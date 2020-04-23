@@ -1,5 +1,5 @@
 import spawn from "cross-spawn";
-import { memoize, } from "lodash";
+import { memoize } from "lodash";
 import { SpawnOptions } from "child_process";
 
 
