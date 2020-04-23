@@ -115,7 +115,6 @@ function wrap(fn: string) {
       ...opts
     };
     try {
-      console.log(args, endArgs)
       return exec(fn, args.concat(endArgs), execOpts);
     } finally {
       args = undefined;
