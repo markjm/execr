@@ -2,7 +2,7 @@
   "name": "execr",
   "version": "1.0.0",
   "description": "Utility to streamline exec calls",
-  "main": "index.js",
+  "main": "execr.js",
   "author": "Mark Molinaro",
   "license": "MIT",
   "scripts": {

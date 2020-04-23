@@ -109,6 +109,3 @@ tmp/
 temp/
 
 # End of https://www.gitignore.io/api/node
-
-execr.d.ts
-execr.js
