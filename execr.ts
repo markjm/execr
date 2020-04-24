@@ -23,9 +23,9 @@ type FunctionWithArbitraryParameters<T extends (this: AnyKey<T>, ...args: any) =
   AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<T>>>>>>> &
   AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<T>>>>>>>>;
 
-type ExecSyncOpts = {
+type ExecOpts = {
   failOnError?: boolean,
-  memoize?: boolean,
+  memoize?: boolean
 } & SpawnOptions
 
 type ExecResult = {
@@ -34,45 +34,45 @@ type ExecResult = {
   stderr: string,
 }
 
-type MaybeArgs = string[] | ExecSyncOpts | undefined;
+type MaybeArgs = string[] | ExecOpts | undefined;
 
 const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
 const isObject = (maybeObj: unknown) => Object.prototype.toString.call(maybeObj) == "[object Object]";
 
-const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecSyncOpts) => {
+const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecOpts) => {
   const defaultArgs = {
     maxBuffer: 1024 * 1024 * 10,
     failOnError: true,
     memoize: false
   }
 
-  let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecSyncOpts : options || {};
+  let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecOpts : options || {};
   finalOpts = { ...defaultArgs, ...finalOpts }
 
   const rawArgs = Array.isArray(maybeArgs) ? maybeArgs.filter(Boolean) : [];
-  const finalArgs = ([] as string[]).concat(...rawArgs.map(s => s.split(/\s/))).filter(Boolean);
+  const finalArgs = ([] as string[]).concat(...rawArgs.map(s => s.split ? s.split(/\s/) : s)).filter(Boolean);
 
-  return [finalArgs, finalOpts] as [string[], ExecSyncOpts];
+  return [finalArgs, finalOpts] as [string[], ExecOpts];
 }
 
 async function execAsync(
   cmd: string,
-  args: string[],
-  opts = {
-    failOnError: true
-  }
+  maybeArgs: MaybeArgs,
+  opts: ExecOpts
 ): Promise<ExecResult> {
+  const [ endArgs, execOpts ] = normalizeArgs(maybeArgs, opts);
+
   let stdout = "";
   let stderr = "";
 
   return new Promise(function(resolve, reject) {
-    const childProcess = spawn(cmd, args.filter(Boolean));
+    const childProcess = spawn(cmd, endArgs, execOpts);
 
     childProcess.stdout?.on("data", data => (stdout += data));
     childProcess.stderr?.on("data", data => (stderr += data));
 
     childProcess.on("error", err => {
-      const errorMessage = `${cmd} ${args.join(" ")} errored.\n${err}`.trim();
+      const errorMessage = `${cmd} ${endArgs.join(" ")} errored.\n${err}`.trim();
       if (opts.failOnError) {
         reject(errorMessage);
       }
@@ -86,7 +86,7 @@ async function execAsync(
 
     return childProcess.on("close", (status, signal) => {
       if (status > 0 || signal) {
-        const errorMessage = `${cmd} ${args.join(" ")} failed.\n${stderr}`;
+        const errorMessage = `${cmd} ${endArgs.join(" ")} failed.\n${stderr}`;
         if (opts.failOnError) {
           reject(errorMessage);
         }
@@ -104,7 +104,7 @@ async function execAsync(
 function exec(
   cmd: string,
   maybeArgs: MaybeArgs,
-  opts: ExecSyncOpts
+  opts: ExecOpts
 ): ExecResult {
   const [ endArgs, execOpts ] = normalizeArgs(maybeArgs, opts);
 
@@ -142,7 +142,7 @@ function exec(
 function wrap(fn: string) {
   let args: string[] | undefined = [];
 
-  function _fn(endArgsOrOpts: MaybeArgs = [], opts: ExecSyncOpts = {}): ExecResult {
+  function _fn(endArgsOrOpts: MaybeArgs = [], opts: ExecOpts = {}): ExecResult {
     if (!args) {
       args = [];
     }
