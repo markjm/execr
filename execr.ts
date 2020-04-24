@@ -49,8 +49,7 @@ const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecOpts) => {
   let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecOpts : options || {};
   finalOpts = { ...defaultArgs, ...finalOpts }
 
-  const rawArgs = Array.isArray(maybeArgs) ? maybeArgs.filter(Boolean) : [];
-  const finalArgs = ([] as string[]).concat(...rawArgs.map(s => s.split ? s.split(/\s/) : s)).filter(Boolean);
+  const finalArgs = Array.isArray(maybeArgs) ? maybeArgs.filter(Boolean) : [];
 
   return [finalArgs, finalOpts] as [string[], ExecOpts];
 }
@@ -58,7 +57,7 @@ const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecOpts) => {
 async function execAsync(
   cmd: string,
   maybeArgs: MaybeArgs,
-  opts: ExecOpts
+  opts?: ExecOpts
 ): Promise<ExecResult> {
   const [ endArgs, execOpts ] = normalizeArgs(maybeArgs, opts);
 
@@ -73,7 +72,7 @@ async function execAsync(
 
     childProcess.on("error", err => {
       const errorMessage = `${cmd} ${endArgs.join(" ")} errored.\n${err}`.trim();
-      if (opts.failOnError) {
+      if (execOpts.failOnError) {
         reject(errorMessage);
       }
 
@@ -87,7 +86,7 @@ async function execAsync(
     return childProcess.on("close", (status, signal) => {
       if (status > 0 || signal) {
         const errorMessage = `${cmd} ${endArgs.join(" ")} failed.\n${stderr}`;
-        if (opts.failOnError) {
+        if (execOpts.failOnError) {
           reject(errorMessage);
         }
       }
@@ -104,18 +103,18 @@ async function execAsync(
 function exec(
   cmd: string,
   maybeArgs: MaybeArgs,
-  opts: ExecOpts
+  opts?: ExecOpts
 ): ExecResult {
   const [ endArgs, execOpts ] = normalizeArgs(maybeArgs, opts);
 
-  const spawnFunc = opts.memoize ? memoizeSpawnSync : spawn.sync;
+  const spawnFunc = execOpts.memoize ? memoizeSpawnSync : spawn.sync;
   const result = spawnFunc(cmd, endArgs, execOpts);
 
   if ((result.status && result.status > 0) || result.signal) {
     const errorMessage = `${cmd} ${endArgs.join(" ")} failed. Status ${
       result.status
     }, Signal ${result.signal}.\n${result.stderr}`;
-    if (opts.failOnError) {
+    if (execOpts.failOnError) {
       throw new Error(errorMessage);
     }
   }
@@ -165,8 +164,7 @@ function wrap(fn: string) {
         args = [];
       }
     
-      const splitArgs = prop.toString().split(/\s/).filter(Boolean);
-      args.push(...splitArgs);
+      args.push(prop.toString());
       return proxy;
     }
   };
