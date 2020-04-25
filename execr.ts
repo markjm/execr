@@ -84,7 +84,7 @@ async function execAsync(
       }
 
       resolve({
-        status,
+        status: (status || signal)!,
         stdout: `${stdout}`.trim(),
         stderr: `${stderr}`.trim()
       });
