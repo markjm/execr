@@ -77,7 +77,7 @@ async function execAsync(
 
     return childProcess.on("close", (status, signal) => {
       if (status > 0 || signal) {
-        const errorMessage = `${cmd} ${endArgs.join(" ")} failed.\n${stderr}`;
+        const errorMessage = `${cmd} ${endArgs.join(" ")} failed. Status ${status}, Signal ${signal}.\n${stderr}`;
         if (execOpts.failOnError) {
           reject(errorMessage);
         }
