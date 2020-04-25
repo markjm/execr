@@ -4,28 +4,29 @@ import { SpawnOptions } from "child_process";
 
 type AnyKey<T> = T & {
   [key: string]: T
-}
+};
 
+type AnyFunction = (...args: any) => any;
 type Tail<T extends any[]> =
   ((...args: T) => void) extends ((firstArg: any, ...restOfArgs: infer R) => void) ? R : never;
-
-type CurriedFunction<T extends (...args: any) => any> = (...args: Tail<Parameters<T>>) => ReturnType<T>
+type CurriedFunction<T extends AnyFunction> = (...args: Tail<Parameters<T>>) => ReturnType<T>;
 
 type ExecOpts = {
   failOnError?: boolean,
   memoize?: boolean
-} & SpawnOptions
-
+} & SpawnOptions;
 type MaybeArgs = string[] | ExecOpts | undefined;
+
 type ExecParameters = [string, MaybeArgs?, (ExecOpts | undefined)?];
 
 type ExecResult = {
-  status: number | NodeJS.Signals,
+  status: -1 | number | NodeJS.Signals,
   stdout: string,
   stderr: string,
 }
 
 type ExecFunction = (...args: ExecParameters) => ExecResult;
+type ExecAsyncFunction = (...args: ExecParameters) => Promise<ExecResult>;
 
 const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
 const isObject = (maybeObj: unknown) => Object.prototype.toString.call(maybeObj) == "[object Object]";
@@ -129,11 +130,11 @@ function exec(
  * @param command - string of command which will be passed as first argument to exec.
  * Examples: `git`, `yarn`, `az`.
  */
-function wrap(fn: string): AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<CurriedFunction<ExecFunction>>>>>>>>;
-function wrap(fn: string): CurriedFunction<ExecFunction> {
+function _wrap<T extends AnyFunction>(fn: T, cmd: string): AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<CurriedFunction<T>>>>>>>>;
+function _wrap<T extends AnyFunction>(fn: T, cmd: string): CurriedFunction<T> {
   let args: string[] | undefined = [];
 
-  function _fn(endArgsOrOpts: MaybeArgs, opts?: ExecOpts): ExecResult {
+  function _fn(...[endArgsOrOpts, opts]: Parameters<CurriedFunction<T>>): ReturnType<CurriedFunction<T>> {
     if (!args) {
       args = [];
     }
@@ -141,7 +142,7 @@ function wrap(fn: string): CurriedFunction<ExecFunction> {
     const [endArgs, execOpts] = normalizeArgs(endArgsOrOpts, opts);
 
     try {
-      return exec(fn, args.concat(endArgs), execOpts);
+      return fn(cmd, args.concat(endArgs), execOpts);
     } finally {
       args = undefined;
     }
@@ -163,9 +164,12 @@ function wrap(fn: string): CurriedFunction<ExecFunction> {
   return new Proxy(_fn, handler);
 }
 
+const wrap = (cmd: string) => _wrap<ExecFunction>(exec, cmd);
+const wrapAsync = (cmd: string) => _wrap<ExecAsyncFunction>(execAsync, cmd);
+
 export {
   exec,
   execAsync,
-  wrap
+  wrap,
+  wrapAsync
 }
-
