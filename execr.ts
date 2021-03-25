@@ -1,6 +1,6 @@
 import spawn from "cross-spawn";
 import { memoize } from "lodash";
-import { SpawnOptions } from "child_process";
+import { SpawnOptions, ChildProcess } from "child_process";
 
 type AnyKey<T> = T & {
   [key: string]: T
@@ -25,8 +25,9 @@ type ExecResult = {
   stderr: string,
 }
 
+type AttachedPromise<T> = Promise<T> & { _child: ChildProcess }
 type ExecFunction = (...args: ExecParameters) => ExecResult;
-type ExecAsyncFunction = (...args: ExecParameters) => Promise<ExecResult>;
+type ExecAsyncFunction = (...args: ExecParameters) => AttachedPromise<ExecResult>;
 
 const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
 const isObject = (maybeObj: unknown) => Object.prototype.toString.call(maybeObj) == "[object Object]";
@@ -46,19 +47,17 @@ const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecOpts) => {
   return [finalArgs, finalOpts] as [string[], ExecOpts];
 }
 
-async function execAsync(
+function execAsync(
   cmd: string,
   maybeArgs: MaybeArgs,
   opts?: ExecOpts
-): Promise<ExecResult> {
+): AttachedPromise<ExecResult> {
   const [endArgs, execOpts] = normalizeArgs(maybeArgs, opts);
 
   let stdout = "";
   let stderr = "";
-
-  return new Promise(function (resolve, reject) {
-    const childProcess = spawn(cmd, endArgs, execOpts);
-
+  const childProcess = spawn(cmd, endArgs, execOpts);
+  const promise = new Promise(function (resolve, reject) {
     childProcess.stdout?.on("data", data => (stdout += data));
     childProcess.stderr?.on("data", data => (stderr += data));
 
@@ -89,7 +88,10 @@ async function execAsync(
         stderr: `${stderr}`.trim()
       });
     });
-  });
+  }) as AttachedPromise<ExecResult>;
+
+  promise._child = childProcess;
+  return promise;
 }
 
 function exec(
