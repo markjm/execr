@@ -6,6 +6,9 @@ type AnyKey<T> = T & {
   [key: string]: T
 };
 
+type AsyncifiedObject<T> = {
+	[P in keyof T]: Promise<T[P]>
+}
 type AnyFunction = (...args: any) => any;
 type Tail<T extends any[]> =
   ((...args: T) => void) extends ((firstArg: any, ...restOfArgs: infer R) => void) ? R : never;
@@ -25,7 +28,7 @@ type ExecResult = {
   stderr: string,
 }
 
-type AttachedPromise<T> = Promise<T> & { _child: ChildProcess }
+type AttachedPromise<T> = Promise<T> & AsyncifiedObject<T> & { _child: ChildProcess }
 type ExecFunction = (...args: ExecParameters) => ExecResult;
 type ExecAsyncFunction = (...args: ExecParameters) => AttachedPromise<ExecResult>;
 
@@ -93,6 +96,9 @@ function execAsync(
   }) as AttachedPromise<ExecResult>;
 
   promise._child = childProcess;
+  promise.status = promise.then(result => result.status);
+  promise.stdout = promise.then(result => result.stdout);
+  promise.stderr = promise.then(result => result.stderr);
   return promise;
 }
 

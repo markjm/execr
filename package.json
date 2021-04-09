@@ -1,6 +1,6 @@
 {
   "name": "@markjm/execr",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Utility to streamline exec calls",
   "main": "execr.js",
   "types": "execr.d.ts",
