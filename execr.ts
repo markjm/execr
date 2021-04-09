@@ -32,15 +32,17 @@ type ExecAsyncFunction = (...args: ExecParameters) => AttachedPromise<ExecResult
 const memoizeSpawnSync = memoize(spawn.sync, (...args) => JSON.stringify(args));
 const isObject = (maybeObj: unknown) => Object.prototype.toString.call(maybeObj) == "[object Object]";
 
-const normalizeArgs = (maybeArgs: MaybeArgs, options?: ExecOpts) => {
-  const defaultArgs = {
+const normalizeArgs = (maybeArgs: MaybeArgs, suppliedOptions?: ExecOpts, defaultOptions?: ExecOpts) => {
+  const globalDefaultOpts = {
     maxBuffer: 1024 * 1024 * 10,
     failOnError: true,
     memoize: false
   }
 
-  let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecOpts : options || {};
-  finalOpts = { ...defaultArgs, ...finalOpts }
+  const normalizedDefaultOpts = defaultOptions || {};
+
+  let finalOpts = isObject(maybeArgs) ? maybeArgs as ExecOpts : suppliedOptions || {};
+  finalOpts = { ...globalDefaultOpts, ...normalizedDefaultOpts, ...finalOpts }
 
   const finalArgs = Array.isArray(maybeArgs) ? maybeArgs.filter(Boolean) : [];
 
@@ -130,18 +132,19 @@ function exec(
  * Example `az.artifacts.universal.download(["--file", "<name>"])`
  * 
  * @param command - string of command which will be passed as first argument to exec.
+ * @param defaultOptions - Default options to be used for all invocations of this wrapped command.
  * Examples: `git`, `yarn`, `az`.
  */
-function _wrap<T extends AnyFunction>(fn: T, cmd: string): AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<CurriedFunction<T>>>>>>>>;
-function _wrap<T extends AnyFunction>(fn: T, cmd: string): CurriedFunction<T> {
+function _wrap<T extends AnyFunction>(fn: T, cmd: string, defaultOpts?: ExecOpts): AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<AnyKey<CurriedFunction<T>>>>>>>>;
+function _wrap<T extends AnyFunction>(fn: T, cmd: string, defaultOpts?: ExecOpts): CurriedFunction<T> {
   let args: string[] | undefined = [];
 
-  function _fn(...[endArgsOrOpts, opts]: Parameters<CurriedFunction<T>>): ReturnType<CurriedFunction<T>> {
+  function _fn(...[endArgsOrOpts, suppliedOpts]: Parameters<CurriedFunction<T>>): ReturnType<CurriedFunction<T>> {
     if (!args) {
       args = [];
     }
 
-    const [endArgs, execOpts] = normalizeArgs(endArgsOrOpts, opts);
+    const [endArgs, execOpts] = normalizeArgs(endArgsOrOpts, suppliedOpts, defaultOpts);
 
     try {
       return fn(cmd, args.concat(endArgs), execOpts);
@@ -166,8 +169,8 @@ function _wrap<T extends AnyFunction>(fn: T, cmd: string): CurriedFunction<T> {
   return new Proxy(_fn, handler);
 }
 
-const wrap = (cmd: string) => _wrap<ExecFunction>(exec, cmd);
-const wrapAsync = (cmd: string) => _wrap<ExecAsyncFunction>(execAsync, cmd);
+const wrap = (cmd: string, defaultOptions?: ExecOpts) => _wrap<ExecFunction>(exec, cmd, defaultOptions);
+const wrapAsync = (cmd: string, defaultOptions?: ExecOpts) => _wrap<ExecAsyncFunction>(execAsync, cmd, defaultOptions);
 
 export {
   exec,
