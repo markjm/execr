@@ -3,6 +3,10 @@
   "version": "1.6.0",
   "description": "Utility to streamline exec calls",
   "main": "execr.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markjm/execr.git"
+  },
   "types": "execr.d.ts",
   "author": "Mark Molinaro",
   "license": "MIT",
